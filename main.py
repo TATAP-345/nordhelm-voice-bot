@@ -1,21 +1,13 @@
-import sys
 import os
 import disnake
 from disnake.ext import commands
 from dotenv import load_dotenv
 
-# Принудительно кодируем вывод в UTF-8 для корректной работы эмодзи в консоли Windows
-if sys.stdout and hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
-if sys.stderr and hasattr(sys.stderr, "reconfigure"):
-    sys.stderr.reconfigure(encoding="utf-8")
-
-# Загружаем переменные окружения из .env файла
 load_dotenv()
 
 # --- КОНФИГУРАЦИЯ ID ---
-TOKEN = os.getenv("BOT_TOKEN")
-CREATOR_CHANNEL_ID = int(os.getenv("CREATOR_CHANNEL_ID", "1533052343665430590"))  # Канал «Зайди, чтобы создать»
+CREATOR_CHANNEL_ID = 1533052343665430590  # Канал «Зайди, чтобы создать»
+# Бот будет автоматически создавать каналы в той же категории, где находится этот канал
 
 intents = disnake.Intents.default()
 intents.guilds = True
@@ -38,6 +30,7 @@ async def on_voice_state_update(member: disnake.Member, before: disnake.VoiceSta
 
     # === СЦЕНАРИЙ 1: ЧЕЛОВЕК ЗАШЕЛ В КАНАЛ-ГЕНЕРАТОР ===
     if after.channel and after.channel.id == CREATOR_CHANNEL_ID:
+        # Находим категорию, в которой сидит канал-генератор
         category = after.channel.category
 
         # Собираем номера всех существующих каналов с именем "сцена-X"
@@ -45,6 +38,7 @@ async def on_voice_state_update(member: disnake.Member, before: disnake.VoiceSta
         for channel in guild.voice_channels:
             if channel.name.startswith("сцена-"):
                 try:
+                    # Извлекаем цифру после дефиса
                     num = int(channel.name.split("-")[1])
                     existing_numbers.add(num)
                 except (IndexError, ValueError):
@@ -72,27 +66,28 @@ async def on_voice_state_update(member: disnake.Member, before: disnake.VoiceSta
             print(f"[Авто-Войс] Создан канал '{new_channel_name}' для {member.name}")
 
         except disnake.Forbidden:
-            print("[Ошибка] У бота нет прав 'Manage Channels' (Управление каналами) или 'Move Members' (Перемещение участников).")
+            print(
+                "[Ошибка] У бота нет прав 'Manage Channels' (Управление каналами) или 'Move Members' (Перемещение участников).")
         except Exception as e:
             print(f"[Ошибка] Не удалось создать канал: {e}")
 
     # === СЦЕНАРИЙ 2: ЧЕЛОВЕК ВЫШЕЛ ИЗ КАНАЛА ===
+    # Проверяем канал, из которого пользователь только что ушёл (before)
     if before.channel and before.channel.id in temp_channels:
-        # Если в этом канале больше никого не осталось
+        # Если в этом канале больше никого не осталось (длина списка участников равна 0)
         if len(before.channel.members) == 0:
             try:
+                # Удаляем пустую комнату
                 await before.channel.delete()
+                # Удаляем её ID из нашего списка отслеживания
                 temp_channels.remove(before.channel.id)
                 print(f"[Авто-Войс] Канал '{before.channel.name}' опустел и был успешно удален.")
             except disnake.NotFound:
+                # На случай, если канал уже был удален вручную
                 if before.channel.id in temp_channels:
                     temp_channels.remove(before.channel.id)
             except disnake.Forbidden:
                 print(f"[Ошибка] Не удалось удалить канал '{before.channel.name}': нет прав.")
 
-
-if __name__ == "__main__":
-    if not TOKEN:
-        print("ОШИБКА: Токен BOT_TOKEN не найден в .env файле!")
-    else:
-        bot.run(TOKEN)
+# Вставь сюда токен ИМЕННО ЭТОГО (третьего) бота
+bot.run(os.getenv('BOT_TOKEN'))
