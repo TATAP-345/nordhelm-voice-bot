@@ -1,7 +1,12 @@
+import sys
 import os
 import disnake
 from disnake.ext import commands
 from dotenv import load_dotenv
+
+# Настройка UTF-8 вывода для Windows консоли
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 load_dotenv()
 
@@ -21,6 +26,12 @@ temp_channels = []
 
 @bot.event
 async def on_ready():
+    # Находим уже созданные ранее временные каналы при перезапуске бота
+    for guild in bot.guilds:
+        for channel in guild.voice_channels:
+            if channel.name.startswith("сцена-") and channel.id not in temp_channels:
+                temp_channels.append(channel.id)
+
     print(f"БОТ АВТО-ГОЛОСОВЫХ [{bot.user}] успешно запущен и готов к работе!")
 
 
@@ -89,5 +100,4 @@ async def on_voice_state_update(member: disnake.Member, before: disnake.VoiceSta
             except disnake.Forbidden:
                 print(f"[Ошибка] Не удалось удалить канал '{before.channel.name}': нет прав.")
 
-# Вставь сюда токен ИМЕННО ЭТОГО (третьего) бота
 bot.run(os.getenv('BOT_TOKEN'))
